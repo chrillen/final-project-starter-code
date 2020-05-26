@@ -20,8 +20,8 @@ export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEven
 
   const updatedTodo: UpdateTodoRequest = JSON.parse(event.body)
 
-  if(!updatedTodo.dueDate || !updatedTodo.name || !updatedTodo.done) {
-    return generateResponse('dueDate or name or done is missing' , 400)
+  if(!updatedTodo.dueDate || !updatedTodo.name ) {
+    return generateResponse('dueDate or name is missing' , 400)
   }
 
   try {

@@ -106,7 +106,7 @@ export async function createTodoItem(todoId: string,newTodo: CreateTodoRequest,b
         ExpressionAttributeValues: {
           ":todoName": updatedTodo.name,
           ":dueDate": new Date(updatedTodo.dueDate).toISOString(),
-          ":done": updatedTodo.done
+          ":done": updatedTodo.done || false
       },
       ReturnValues: "UPDATED_NEW"
     })
