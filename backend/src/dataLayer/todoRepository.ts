@@ -14,8 +14,10 @@ const todosIndex = process.env.TODOS_ID_INDEX
 /**
  * Get all todo items that belongs to the user.
  * @param userId userid of the user that is logged in.
+ * @param limit limit number of items to be received.
+ * @param nextKey get nextkey if their is any for pagination.
  *
- * @returns all todo items that user has added and lastkey
+ * @returns all todo items that user has added and nextKey for pagination handling.
  */
 export async function getTodoItems(userId: string,limit :number,nextKey :Key) : Promise<any> {
   const result = await docClient.query({
@@ -42,6 +44,7 @@ export async function getTodoItems(userId: string,limit :number,nextKey :Key) : 
 /**
  * valides if the todo item exists
  * @param todoId id of the todo item
+ * @param userId userid of the user that is logged in.
  *
  * @returns todoItem if it exists otherwise its undefined
  */
@@ -90,6 +93,7 @@ export async function createTodoItem(todoId: string,newTodo: CreateTodoRequest,b
    * Updates the todo item based on the Id
    * @param todoId id of the todo item
    * @param userId id of the user item
+   * @param updatedTodo updatedTodo item with the changes.
    *
    * @returns Updated todo item.
    */
@@ -112,6 +116,8 @@ export async function createTodoItem(todoId: string,newTodo: CreateTodoRequest,b
   /**
    * Deletes the todo item based on the Id
    * @param todoId id of the todo item
+   * @param userId id of the user item
+
    *
    * @returns nothing
    */
