@@ -3,13 +3,23 @@ import { UpdateTodoRequest } from "../requests/UpdateTodoRequest";
 import { CreateTodoRequest } from "../requests/CreateTodoRequest";
 import { TodoItem } from "../models/TodoItem";
 import { TodoUpdate } from "../models/TodoUpdate";
-import { Key } from 'aws-sdk/clients/dynamodb';
+import { Key, DocumentClient } from 'aws-sdk/clients/dynamodb';
 import { encodeNextKey } from '../lambda/utils';
 
-const docClient = new AWS.DynamoDB.DocumentClient()
-const todosTable = process.env.TODOS_TABLE
-const todosIndex = process.env.TODOS_ID_INDEX
+const AWSXRay = require('aws-xray-sdk');
+const XAWS = AWSXRay.captureAWS(AWS)
 
+function createDynamoDBClient() {
+  return new XAWS.DynamoDB.DocumentClient()
+}
+
+export class TodoRepository {
+
+  constructor(
+    private readonly docClient: DocumentClient = createDynamoDBClient(),
+    private readonly todosTable = process.env.TODOS_TABLE,
+    private readonly todosIndex = process.env.TODOS_ID_INDEX){
+  }
 
 /**
  * Get all todo items that belongs to the user.
@@ -19,10 +29,10 @@ const todosIndex = process.env.TODOS_ID_INDEX
  *
  * @returns all todo items that user has added and nextKey for pagination handling.
  */
-export async function getTodoItems(userId: string,limit :number,nextKey :Key) : Promise<any> {
-  const result = await docClient.query({
-    TableName: todosTable,
-    IndexName: todosIndex,
+ async  getTodoItems(userId: string,limit :number,nextKey :Key) : Promise<any> {
+  const result = await this.docClient.query({
+    TableName: this.todosTable,
+    IndexName: this.todosIndex,
     Limit: limit,
     ExclusiveStartKey: nextKey,
     KeyConditionExpression: 'userId = :userId',
@@ -39,8 +49,6 @@ export async function getTodoItems(userId: string,limit :number,nextKey :Key) : 
     Items: result.Items as TodoItem[], nextKey:  encodeNextKey(result.LastEvaluatedKey)
   }
 }
-
-
 /**
  * valides if the todo item exists
  * @param todoId id of the todo item
@@ -48,10 +56,10 @@ export async function getTodoItems(userId: string,limit :number,nextKey :Key) : 
  *
  * @returns todoItem if it exists otherwise its undefined
  */
-export async function todoExists(todoId: string,userId: string) : Promise<TodoItem> {
-    const result = await docClient
+ async  todoExists(todoId: string,userId: string) : Promise<TodoItem> {
+    const result = await this.docClient
       .get({
-        TableName: todosTable,
+        TableName: this.todosTable,
         Key: {
           todoId, userId
         }
@@ -59,8 +67,6 @@ export async function todoExists(todoId: string,userId: string) : Promise<TodoIt
       .promise()
       return result.Item as TodoItem ?? undefined
   }
-
-
 /**
  * Creates the todo item
  * @param todoId id of the todo item
@@ -71,18 +77,17 @@ export async function todoExists(todoId: string,userId: string) : Promise<TodoIt
  *
  * @returns promise with the newItem created.
  */
-export async function createTodoItem(todoId: string,newTodo: CreateTodoRequest,bucketName: string,userId: string) :Promise<TodoItem> {
+ async createTodoItem(todoId: string,newTodo: CreateTodoRequest,userId: string) :Promise<TodoItem> {
     const newItem  =  {
      todoId: todoId,
      name: newTodo.name,
      createdAt: new Date().toISOString(),
      dueDate: new Date(newTodo.dueDate).toISOString(),
      userId: userId,
-     done: false,
-     attachmentUrl: `https://${bucketName}.s3.amazonaws.com/${todoId}`
+     done: false
     }
-    await docClient.put({
-      TableName: todosTable,
+    await this.docClient.put({
+      TableName: this.todosTable,
       Item: newItem
     }).promise()
     newItem.userId = undefined;
@@ -94,19 +99,22 @@ export async function createTodoItem(todoId: string,newTodo: CreateTodoRequest,b
    * @param todoId id of the todo item
    * @param userId id of the user item
    * @param updatedTodo updatedTodo item with the changes.
+   * @param attachmentUrl? Update attachmentUrl of item its optional.
    *
    * @returns Updated todo item.
    */
-  export async function updateTodoItem(userId: string, todoId: string, updatedTodo: UpdateTodoRequest) : Promise<TodoUpdate> {
-    const result = await docClient.update({
-        TableName: todosTable,
+   async  updateTodoItem(userId: string, todoId: string, 
+    updatedTodo: UpdateTodoRequest, attachmentUrl?: string) : Promise<TodoUpdate> {
+    const result = await this.docClient.update({
+        TableName: this.todosTable,
         Key: { userId, todoId },
         ExpressionAttributeNames: { "#N": "name" },
-        UpdateExpression: "set #N=:todoName, dueDate=:dueDate, done=:done",
+        UpdateExpression: "set #N=:todoName, dueDate=:dueDate, done=:done, attachmentUrl=:attachmentUrl",
         ExpressionAttributeValues: {
           ":todoName": updatedTodo.name,
           ":dueDate": new Date(updatedTodo.dueDate).toISOString(),
-          ":done": updatedTodo.done || false
+          ":done": updatedTodo.done || false,
+          ":attachmentUrl": attachmentUrl || ''
       },
       ReturnValues: "UPDATED_NEW"
     })
@@ -117,15 +125,15 @@ export async function createTodoItem(todoId: string,newTodo: CreateTodoRequest,b
    * Deletes the todo item based on the Id
    * @param todoId id of the todo item
    * @param userId id of the user item
-
    *
    * @returns nothing
    */
-  export async function deleteTodoItem(todoId :string,userId :string)  {
-    await docClient.delete({
-    TableName: todosTable,
+   async  deleteTodoItem(todoId :string,userId :string)  {
+    await this.docClient.delete({
+    TableName: this.todosTable,
     Key: {
       todoId, userId
      }
     }).promise()
   }
+}

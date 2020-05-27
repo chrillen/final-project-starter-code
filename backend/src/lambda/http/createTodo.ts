@@ -3,11 +3,11 @@ import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } f
 import { CreateTodoRequest } from '../../requests/CreateTodoRequest'
 import * as uuid from 'uuid'
 import { getUserId, generateResponse } from '../utils'
-import { createTodoItem } from '../../dataLayer/todoRepository'
+import { TodoRepository } from '../../dataLayer/TodoRepository'
 import { createLogger } from '../../utils/logger'
 
-const bucketName = process.env.TODO_IMAGES_S3_BUCKET
 const logger = createLogger('CreateTodo')
+const todoRepository = new TodoRepository()
 
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   logger.info('CreateTodo is called: ',event)
@@ -23,7 +23,7 @@ export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEven
   }
 
   try {
-    const newItem = await createTodoItem(uuid.v4(),newTodo, bucketName, userId)
+    const newItem = await todoRepository.createTodoItem(uuid.v4(),newTodo, userId)
     logger.info('Create todo is done')
     return generateResponse( { item: newItem }, 201)
   } catch(err) {

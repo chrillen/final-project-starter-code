@@ -1,18 +1,19 @@
 import 'source-map-support/register'
 import { generateResponse, getUserId } from '../utils'
-import { todoExists, updateTodoItem } from '../../dataLayer/todoRepository'
+import { TodoRepository } from '../../dataLayer/TodoRepository'
 import { createLogger } from '../../utils/logger'
 import { APIGatewayProxyEvent, APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda'
 import { UpdateTodoRequest } from '../../requests/UpdateTodoRequest'
 
 const logger = createLogger('UpdateTodo')
+const todoRepository = new TodoRepository()
 
 
 export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   logger.info('UpdateTodo is called: ',event)  
   const todoId = event.pathParameters.todoId
   const userId = getUserId(event);
-  const validTodo = await todoExists(todoId, userId)
+  const validTodo = await todoRepository.todoExists(todoId, userId)
 
   if(!validTodo) {
     return generateResponse('Todo does not exist',404)
@@ -25,7 +26,7 @@ export const handler: APIGatewayProxyHandler = async (event: APIGatewayProxyEven
   }
 
   try {
-    const result = await updateTodoItem(userId, todoId ,updatedTodo)
+    const result = await todoRepository.updateTodoItem(userId, todoId ,updatedTodo)
     logger.info('UpdateTodo is done',result)
     return generateResponse('',200)
   } catch(err) {
